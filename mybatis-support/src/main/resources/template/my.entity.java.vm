@@ -1,0 +1,123 @@
+package ${package.Entity};
+
+    #if(${activeRecord})
+    import com.baomidou.mybatisplus.activerecord.Model;
+    #end
+    #foreach($pkg in ${table.importPackages})
+    import ${pkg};
+    #end
+
+import java.io.Serializable;
+
+import com.gaby.mybatis.base.entity.IEntity;
+import com.baomidou.mybatisplus.enums.IdType;
+import com.baomidou.mybatisplus.annotations.TableField;
+import com.baomidou.mybatisplus.annotations.TableId;
+import com.baomidou.mybatisplus.enums.FieldFill;
+
+/**
+ * <p>
+ * ${table.comment}
+ * </p>
+ *
+ * @author ${cfg.author}
+ * @since ${date}
+ */
+#if(${table.convert})
+@TableName("${table.name}")
+#end
+#if(${superEntityClass})
+public class ${entity} extends ${superEntityClass}#if(${activeRecord})<${entity}>#end  implements Serializable,IEntity{
+#elseif(${activeRecord})
+public class ${entity} extends Model<${entity}>  implements Serializable,IEntity{
+#else
+public class ${entity} implements Serializable,IEntity{
+#end
+
+##    private static final long serialVersionUID = 1L;
+
+#foreach($field in ${table.fields})
+    #if(${field.keyFlag})
+        #set($keyPropertyName=${field.propertyName})
+        #set($keyPropertyType=${field.propertyType})
+    #end
+    #if("$!field.comment" != "")
+    /**
+     * ${field.comment}
+     */
+    #end
+    #if(${field.keyFlag})
+#if(${idType} == 'AUTO' && ${keyPropertyType}!='String')
+@TableId(value = "id", type = IdType.AUTO)
+#else
+@TableId(value = "id", type = IdType.INPUT)
+#end
+    #end
+    #if(${field.convert})
+    @TableField("${field.name}")
+    #end
+private ${field.propertyType} ${field.propertyName};
+#end
+
+#foreach($field in ${table.fields})
+    #if(${field.propertyType.equals("Boolean")})
+        #set($getprefix="is")
+    #else
+        #set($getprefix="get")
+    #end
+
+public ${field.propertyType} ${getprefix}${field.capitalName}(){
+        return ${field.propertyName};
+        }
+
+    #if(${entityBuilderModel})
+    public ${entity} set${field.capitalName}(${field.propertyType} ${field.propertyName}){
+    #else
+    public void set${field.capitalName}(${field.propertyType} ${field.propertyName}) {
+    #end
+    #if(${field.propertyType.equals("String")})
+            if(${field.propertyName} != null)
+        ${field.propertyName} = ${field.propertyName}.trim();
+    #end
+        this.${field.propertyName} = ${field.propertyName};
+    #if(${entityBuilderModel})
+            return this;
+    #end
+        }
+#end
+
+#if(${entityColumnConstant})
+/**
+ * 表名
+ */
+public static final String TABLE_NAME="${table.name}" ;
+    #foreach($field in ${table.fields})
+        #if("$!field.comment" != "")
+        /**
+         * ${field.comment}
+         */
+        #end
+    public static final String ${field.name.toUpperCase()} ="${field.name}" ;
+
+    #end
+#end
+
+#if(${activeRecord})
+@Override
+protected Serializable pkVal(){
+    #if(${keyPropertyName})
+            return this.${keyPropertyName};
+    #else
+            return null;
+    #end
+        }
+#end
+@Override
+public ${entity} pkVal(Serializable val){
+    #if(${keyPropertyName})
+            this.${keyPropertyName} = ${keyPropertyType}.valueOf(val.toString());
+    #end
+        return this;
+        }
+        }
+
