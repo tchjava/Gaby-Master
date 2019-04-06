@@ -80,6 +80,18 @@ maven的安装操作我在此就不多说，认为读者具备该能力，以下
 
 > 规范:项目名-api ，项目名-common ,项目名-controller,项目名-service,项目名-web
 
+### 父层pom.xml
+
+```xml
+ <parent>
+    <groupId>com.gaby</groupId>
+    <artifactId>pom</artifactId>
+    <version>1.0-SNAPSHOT</version>
+  </parent>
+```
+
+
+
 ### web层(项目名-web)
 
 该层就放相关的配置文件，其余不放。
@@ -192,7 +204,7 @@ maven的安装操作我在此就不多说，认为读者具备该能力，以下
     <!-- SqlSessionFactory -->
     <bean id="sqlSessionFactory" class="com.baomidou.mybatisplus.spring.MybatisSqlSessionFactoryBean">
         <property name="dataSource" ref="dataSource"></property>
-        <property name="configLocation" value="classpath:xml/spring-mybatis.xml"></property>
+        <property name="configLocation" value="classpath:spring-mybatis.xml"></property>
         <!--<property name="plugins">-->
         <!--<array>-->
         <!--<bean id="paginationInterceptor" class="com.baomidou.mybatisplus.plugins.PaginationInterceptor">-->
@@ -300,7 +312,7 @@ maven的安装操作我在此就不多说，认为读者具备该能力，以下
 
     <bean id="propertyConfigurer"
           class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
-        <property name="locations" value="classpath*:properties/*.properties" />
+        <property name="locations" value="classpath:*.properties" />
     </bean>
 </beans>
 ```
@@ -485,7 +497,7 @@ maven的安装操作我在此就不多说，认为读者具备该能力，以下
 <display-name>Archetype Created Web Application</display-name>
   <context-param>
     <param-name>contextConfigLocation</param-name>
-    <param-value>classpath*:xml/spring-*.xml</param-value>
+    <param-value>classpath:spring-*.xml</param-value>
   </context-param>
   <listener>
     <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
@@ -514,7 +526,7 @@ maven的安装操作我在此就不多说，认为读者具备该能力，以下
     <!-- 指定加载的配置文件 ，通过参数contextConfigLocation加载-->
     <init-param>
       <param-name>contextConfigLocation</param-name>
-      <param-value>classpath:xml/servlet-web.xml</param-value>
+      <param-value>classpath:servlet-web.xml</param-value>
     </init-param>
   </servlet>
 
@@ -562,6 +574,25 @@ maven的安装操作我在此就不多说，认为读者具备该能力，以下
             <artifactId>spring-test</artifactId>
         </dependency>
     </dependencies>
+     <build>
+        <resources>
+            <resource>
+                <directory>../resources</directory>
+                <includes>
+                    <include>*.properties</include>
+                </includes>
+                <filtering>true</filtering>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+                <includes>
+                    <include>*.xml</include>
+                    <include>*.dtd</include>
+                </includes>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+    </build>
 </project>
 
 ```
