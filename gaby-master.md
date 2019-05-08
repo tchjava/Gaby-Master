@@ -177,6 +177,8 @@ maven的安装操作我在此就不多说，认为读者具备该能力，以下
 </beans>
 ```
 
+##### 修改位置:包路径
+
 #### spring-dao.xml
 
 ```xml
@@ -289,6 +291,8 @@ maven的安装操作我在此就不多说，认为读者具备该能力，以下
 </beans>
 ```
 
+##### 修改位置:映射mapper路径
+
 #### spring-main.xml
 
 ```xml
@@ -317,6 +321,8 @@ maven的安装操作我在此就不多说，认为读者具备该能力，以下
 </beans>
 ```
 
+##### 修改位置:包路径
+
 #### spring-mybatis.xml
 
 ```xml
@@ -341,6 +347,8 @@ maven的安装操作我在此就不多说，认为读者具备该能力，以下
 
 </configuration>
 ```
+
+##### 修改位置:方言改成oracle
 
 #### logback.xml
 
@@ -528,6 +536,7 @@ maven的安装操作我在此就不多说，认为读者具备该能力，以下
       <param-name>contextConfigLocation</param-name>
       <param-value>classpath:servlet-web.xml</param-value>
     </init-param>
+      <load-on-startup>1</load-on-startup>
   </servlet>
 
   <servlet-mapping>
@@ -537,6 +546,8 @@ maven的安装操作我在此就不多说，认为读者具备该能力，以下
 </web-app>
 
 ```
+
+##### 注意:映射路径  wpt
 
 #### pom.xml
 
@@ -798,6 +809,7 @@ mapper包里的就是数据访问层的代码。
         <dependency>
             <groupId>com.gaby</groupId>
             <artifactId>web-common</artifactId>
+            <version>1.0-SNAPSHOT</version>
         </dependency>
     </dependencies>
 </project>
@@ -949,4 +961,546 @@ redis.maxIdle=300
 redis.maxWait=3000  
 redis.testOnBorrow=true
 ```
+
+## httpclient
+
+### httpclient.properties
+
+```properties
+#最大连接数
+httpclient.maxTotal=200
+#单台主机的并发数
+httpclient.defaultMaxPerRoute=50
+
+
+#连接超时时间,毫秒
+httpclient.connectTimeout=1000
+#从连接池获取连接时间,毫秒
+httpclient.connectionRequestTimeout=500
+#数据传输时间,毫秒
+httpclient.socketTimeout=10000
+```
+
+### spring-httpclient.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                        http://www.springframework.org/schema/beans/spring-beans-3.1.xsd">
+
+    <bean id="connectionManager" class="org.apache.http.impl.conn.PoolingHttpClientConnectionManager">
+        <property name="maxTotal" value="${httpclient.maxTotal}"></property>
+        <property name="defaultMaxPerRoute" value="${httpclient.defaultMaxPerRoute}"></property>
+    </bean>
+
+    <!--httpclient构造器-->
+    <bean id="httpClientBuilder" class="org.apache.http.impl.client.HttpClientBuilder">
+        <property name="connectionManager" ref="connectionManager"></property>
+    </bean>
+
+    <!--httpclient对象,多例-->
+    <bean  id="httpClient" class="org.apache.http.impl.client.CloseableHttpClient"
+          factory-bean="httpClientBuilder" factory-method="build"
+    scope="prototype">
+
+    </bean>
+
+    <!--Builder-->
+    <bean id="builder" class="org.apache.http.client.config.RequestConfig.Builder">
+        <property name="connectTimeout" value="${httpclient.connectTimeout}"/>
+        <property name="connectionRequestTimeout" value="${httpclient.connectionRequestTimeout}"/>
+        <property name="socketTimeout" value="${httpclient.socketTimeout}"/>
+    </bean>
+
+    <!--请求配置对象-->
+    <bean class="org.apache.http.client.config.RequestConfig" factory-bean="builder" factory-method="build">
+
+    </bean>
+    <!--定期清理无效连接-->
+    <bean class="com.tjlou.wpt.httpclient.IdleConnectionEvictor">
+        <constructor-arg index="0" ref="connectionManager"/>
+    </bean>
+</beans>
+
+```
+
+### 清理无效连接的线程类
+
+```java
+package com.taotao.common.util;
+
+import org.apache.http.conn.HttpClientConnectionManager;
+
+/**
+ * 定期清理无效的http连接
+ */
+public class IdleConnectionEvictor extends Thread {
+
+    private final HttpClientConnectionManager connMgr;
+    
+    private Integer waitTime;
+
+    private volatile boolean shutdown;
+
+    public IdleConnectionEvictor(HttpClientConnectionManager connMgr,Integer waitTime) {
+        this.connMgr = connMgr;
+        this.waitTime = waitTime;
+        this.start();
+    }
+
+    @Override
+    public void run() {
+        try {
+            while (!shutdown) {
+                synchronized (this) {
+                    wait(waitTime);
+                    // 关闭失效的连接
+                    connMgr.closeExpiredConnections();
+                }
+            }
+        } catch (InterruptedException ex) {
+            // 结束
+        }
+    }
+
+    /**
+     * 销毁释放资源
+     */
+    public void shutdown() {
+        shutdown = true;
+        synchronized (this) {
+            notifyAll();
+        }
+    }
+}
+
+```
+
+## shiro
+
+### spring-shiro.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                        http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+                        http://www.springframework.org/schema/context
+                        http://www.springframework.org/schema/context/spring-context-3.1.xsd http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+
+
+
+    <!-- 开启aop，对类代理 -->
+    <bean id="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+        <property name="securityManager" ref="securityManager" />
+        <!-- loginUrl认证提交地址，如果没有认证将会请求此地址进行认证，请求此地址将由formAuthenticationFilter进行表单认证 -->
+        <property name="loginUrl" value="/sms/auth" />
+        <!-- 通过unauthorizedUrl指定没有权限操作时跳转页面-->
+        <property name="unauthorizedUrl" value="/index.jsp" />
+        <!-- 自定义filter配置 -->
+        <property name="filters">
+            <map>
+                <!-- 将自定义 的FormAuthenticationFilter注入shiroFilter中-->
+                <entry key="authc" value-ref="formAuthenticationFilter" />
+                <entry key="logout" value-ref="logoutFilter" />
+            </map>
+        </property>
+
+        <!-- 过虑器链定义，从上向下顺序执行，一般将/**放在最下边 -->
+        <property name="filterChainDefinitions">
+            <value>
+                /logout=logout
+                <!-- 对静态资源设置匿名访问 -->
+                /images/** = anon
+                /js/** = anon
+                /styles/** = anon
+                /assets/** =anon
+                /sms/** = authc
+            </value>
+        </property>
+    </bean>
+
+    <!-- securityManager安全管理器 -->
+    <bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+        <!--自定义realm-->
+        <property name="realm" ref="securityRealm" />
+        <!--缓存管理器-->
+        <property name="cacheManager" ref="ehCacheManager"/>
+        <!--会话管理器-->
+        <property name="sessionManager" ref="sessionManager"></property>
+    </bean>
+
+
+    <!--自定义realm-->
+    <bean id="securityRealm" class="com.gaby.sms.realm.CustomRealm"></bean>
+
+    <!--缓存管理器-->
+    <bean id="ehCacheManager" class="org.apache.shiro.cache.ehcache.EhCacheManager">
+        <property name="cacheManagerConfigFile" value="classpath:spring-shiro-ehcache.xml"/>
+    </bean>
+
+    <!--缓存管理器-->
+    <bean id="sessionManager" class="org.apache.shiro.web.session.mgt.DefaultWebSessionManager">
+        <property name="globalSessionTimeout" value="600000"/>
+        <property name="deleteInvalidSessions" value="true"/>
+        <property name="sessionIdCookie" ref="shiroCookieTemplate"/>
+    </bean>
+    <!--cookie模版-->
+    <bean id="shiroCookieTemplate" class="org.apache.shiro.web.servlet.SimpleCookie">
+        <property name="name" value="${shiro.session.name}"/>
+        <property name="path" value="${shiro.session.path}"/>
+        <property name="domain" value="${shiro.session.domain}"/>
+    </bean>
+
+    <!--自定义表单认证过滤器-->
+    <bean id="formAuthenticationFilter" class="com.gaby.sms.filter.MyFormAuthenticationFilter">
+        <property name="usernameParam" value="account"/>
+        <property name="passwordParam" value="pwd"/>
+    </bean>
+    <!--自定义退出过滤器-->
+    <bean id="logoutFilter" class="org.apache.shiro.web.filter.authc.LogoutFilter">
+        <property name="redirectUrl" value="/login.html"></property>
+    </bean>
+</beans>
+```
+
+### spring-shiro-ehache.xml
+
+```xml
+<ehcache xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="http://www.ehcache.org/ehcache.xsd">
+    <!--diskStore：缓存数据持久化的目录 地址  -->
+    <diskStore path="d:\develop\ehcache" />
+    <defaultCache
+            maxElementsInMemory="1000"
+            maxElementsOnDisk="10000000"
+            eternal="false"
+            overflowToDisk="false"
+            diskPersistent="false"
+            timeToIdleSeconds="120"
+            timeToLiveSeconds="120"
+            diskExpiryThreadIntervalSeconds="120"
+            memoryStoreEvictionPolicy="LRU">
+    </defaultCache>
+</ehcache>
+
+
+```
+
+在servlet-web.xml中添加如下配置，AOP设置
+
+```xml
+<!-- 开启shiro注解支持 -->
+    <bean class="org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor">
+        <property name="securityManager" ref="securityManager" />
+    </bean>
+```
+
+### web.xml
+
+```xml
+<!--shiro start-->
+  <!-- shiro过虑器，DelegatingFilterProxy通过代理模式将spring容器中的bean和filter关联起来 -->
+  <filter>
+    <filter-name>shiroFilter</filter-name>
+    <filter-class>org.springframework.web.filter.DelegatingFilterProxy</filter-class>
+    <!-- 设置true由servlet容器控制filter的生命周期 -->
+    <init-param>
+      <param-name>targetFilterLifecycle</param-name>
+      <param-value>true</param-value>
+    </init-param>
+    <!-- 设置spring容器filter的bean id，如果不设置则找与filter-name一致的bean-->
+    <init-param>
+      <param-name>targetBeanName</param-name>
+      <param-value>shiroFilter</param-value>
+    </init-param>
+  </filter>
+  <filter-mapping>
+    <filter-name>shiroFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+  </filter-mapping>
+
+  <!--shiro end-->
+```
+
+### servlet-web.xml
+
+在该配置中添加以下
+
+```xml
+<aop:aspectj-autoproxy proxy-target-class="true"/>
+
+    <!-- 开启shiro注解支持 -->
+    <bean class="org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor">
+        <property name="securityManager" ref="securityManager" />
+    </bean>
+```
+
+### session.properties
+
+```properties
+#shiro-session
+shiro.session.name=TJLSESSIONID
+shiro.session.path=/
+shiro.session.domain=.stu_web.com
+```
+
+### 一些重要的类
+
+#### CustomRealm
+
+>  建议写在service层
+>
+> 该类是shiro认证的最后枢纽，有认证和授权方法。 在认证时，由过滤器调用自定义的realm的认证方法，后面在要授权的时候调用授权方法。
+
+```java
+package com.gaby.sms.realm;
+
+import com.baomidou.mybatisplus.mapper.EntityWrapper;
+import com.gaby.mybatis.auto.stu.entity.UserAccountInfo;
+import com.gaby.mybatis.auto.stu.service.UserAccountInfoService;
+import com.gaby.sms.service.PermissionService;
+import com.gaby.sms.system.MenuInfo;
+import com.gaby.sms.system.SystemUser;
+import org.apache.commons.lang.StringUtils;
+import org.apache.shiro.SecurityUtils;
+import org.apache.shiro.authc.AuthenticationException;
+import org.apache.shiro.authc.AuthenticationInfo;
+import org.apache.shiro.authc.AuthenticationToken;
+import org.apache.shiro.authc.SimpleAuthenticationInfo;
+import org.apache.shiro.authz.AuthorizationInfo;
+import org.apache.shiro.authz.SimpleAuthorizationInfo;
+import org.apache.shiro.cache.Cache;
+import org.apache.shiro.realm.AuthorizingRealm;
+import org.apache.shiro.subject.PrincipalCollection;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import java.util.List;
+
+/**
+ * @discrption:自定义的realm，用来shiro认证
+ * @user:Gaby
+ * @createTime:2019-04-28 18:05
+ */
+public class CustomRealm extends AuthorizingRealm {
+
+    @Autowired
+    private UserAccountInfoService userAccountInfoService;
+
+    @Autowired
+    private PermissionService permissionService;
+
+    @Override
+    public void setName(String name) {
+        super.setName("securityRealm");
+    }
+
+    //认证
+    @Override
+    protected AuthenticationInfo doGetAuthenticationInfo(AuthenticationToken authenticationToken) throws AuthenticationException {
+        //得到帐号
+        String account = (String) authenticationToken.getPrincipal();
+        if (StringUtils.isEmpty(account)) {
+            return null;
+        }
+        UserAccountInfo userAccountInfo = userAccountInfoService.selectOne(new EntityWrapper<UserAccountInfo>().eq(UserAccountInfo.ACCOUNT, account)
+                .eq(UserAccountInfo.STATUS, "00A"));
+        if (null == userAccountInfo) {
+            return null;
+        }
+        SystemUser systemUser = new SystemUser();
+        systemUser.setAccount(userAccountInfo.getAccount());
+        systemUser.setUsername(userAccountInfo.getUsername());
+        List<MenuInfo> menuInfos;
+        List<String> percodes;
+        //判断是否是超管
+        if ("root".equals(account)) {
+            menuInfos = permissionService.queryMenuAll();
+            percodes = permissionService.queryPermissionAll();
+        } else {
+            //到数据库查询菜单数据,权限数据
+            menuInfos = permissionService.selectMenuList(account);
+            percodes = permissionService.selectPermissionList(account);
+        }
+        systemUser.setMenuInfos(menuInfos);
+        systemUser.setPermissions(percodes);
+        SimpleAuthenticationInfo authenticationInfo = new SimpleAuthenticationInfo(systemUser, userAccountInfo.getPwd(), this.getName());
+        System.out.println(account+"----通过认证");
+        return authenticationInfo;
+    }
+
+    //授权
+    @Override
+    protected AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection principalCollection) {
+        SystemUser systemUser = (SystemUser) principalCollection.getPrimaryPrincipal();
+        SimpleAuthorizationInfo simpleAuthorizationInfo = new SimpleAuthorizationInfo();
+        List<String> percodes;
+        //判断是否是超管
+        if ("root".equals(systemUser.getAccount())) {
+            percodes = permissionService.queryPermissionAll();
+        } else {
+            //到数据库查询菜单数据,权限数据
+            percodes = permissionService.selectPermissionList(systemUser.getAccount());
+        }
+        systemUser.setPermissions(percodes);
+        simpleAuthorizationInfo.addStringPermissions(percodes);
+        return simpleAuthorizationInfo;
+    }
+
+    /**
+     * 清除在线用户的所有授权缓存
+     */
+    public void clearCached() {
+        Cache<Object, AuthorizationInfo> authorizationCache = getAuthorizationCache();
+        if (null != authorizationCache) {
+            for (Object key : authorizationCache.keys()) {
+                System.out.println(key);
+                authorizationCache.remove(key);
+            }
+        }
+    }
+
+    /**
+     * 清除当前用户的授权缓存
+     */
+    public void clearCurrentCached() {
+        PrincipalCollection principals = SecurityUtils.getSubject().getPrincipals();
+        super.clearCache(principals);
+    }
+}
+
+```
+
+#### AuthController
+
+> 该类是要认证访问的地址,在spring-shiro中有配置。
+
+```java
+package com.gaby.sms.controller;
+
+import com.gaby.exception.BssException;
+import com.gaby.model.DefaultResponse;
+import com.gaby.sms.system.SystemUser;
+import org.apache.shiro.SecurityUtils;
+import org.apache.shiro.authc.IncorrectCredentialsException;
+import org.apache.shiro.authc.UnknownAccountException;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import javax.servlet.http.HttpServletRequest;
+
+/**
+*@discrption:认证控制器
+*@user:Gaby
+*@createTime:2019-04-28 19:53
+*/
+@Controller
+public class AuthController {
+
+    @RequestMapping("/auth")
+    @ResponseBody
+    public DefaultResponse auth(HttpServletRequest request) {
+        String exceptionClassName = (String) request.getAttribute("shiroLoginFailure");
+        if (null != exceptionClassName) {
+            if (UnknownAccountException.class.getName().equals(exceptionClassName)) {
+                throw new BssException("帐号或密码错误");
+            }
+            if (IncorrectCredentialsException.class.getName().equals(exceptionClassName)) {
+                throw new BssException("帐号或密码错误");
+            }else if("success".equals(exceptionClassName)){
+                return DefaultResponse.DEFAULT_RESPONSE;
+            } else if ("error".equals(exceptionClassName)) {
+                throw new BssException(exceptionClassName);
+            } else {
+                throw new BssException("登录超时,请重新登录");
+            }
+        }
+        return DefaultResponse.DEFAULT_RESPONSE;
+    }
+
+    @RequestMapping("/index")
+    @ResponseBody
+    public SystemUser index() {
+        System.out.println("index........");
+        SystemUser principal = (SystemUser) SecurityUtils.getSubject().getPrincipal();
+        if (null == principal) {
+            throw new BssException("登陆超时，请重新登录");
+        }
+        return principal;
+    }
+}
+
+```
+
+#### MyFormAuthenticationFilter
+
+> 自定义表单过滤器
+>
+> 该类是为了将登录页面的帐号密码的字段做成自定义,由自己来控制转发
+
+```java
+package com.gaby.sms.filter;
+
+import org.apache.shiro.authc.AuthenticationToken;
+import org.apache.shiro.subject.Subject;
+import org.apache.shiro.web.filter.authc.FormAuthenticationFilter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+
+public class MyFormAuthenticationFilter extends FormAuthenticationFilter {
+    private static final Logger log = LoggerFactory.getLogger(MyFormAuthenticationFilter.class);
+    @Override
+    protected boolean onAccessDenied(ServletRequest request, ServletResponse response) throws Exception {
+//        if (!super.onAccessDenied(request, response)) {
+//            request.setAttribute("shiroLoginFailure","success");
+//        }
+//        return true;
+        if (isLoginSubmission(request, response)) {
+            if (log.isTraceEnabled()) {
+                log.trace("Login submission detected.  Attempting to execute login.");
+            }
+            if(!executeLogin(request, response)){
+                request.setAttribute("shiroLoginFailure","success");
+            }
+        } else {
+            if (log.isTraceEnabled()) {
+                log.trace("Login page view.");
+            }
+            //allow them to see the login page ;)
+            request.setAttribute("shiroLoginFailure","error");
+        }
+        return true;
+    }
+
+    @Override
+    protected boolean onLoginSuccess(AuthenticationToken token, Subject subject, ServletRequest request, ServletResponse response) throws Exception {
+        return false;
+    }
+}
+
+```
+
+### 注意事项
+
+SecurityUtils是一个工具类，可以得到当前的主体信息。
+
+常用方法:
+
+```java
+SecurityUtils.getSubject().getPrincipal();
+```
+
+
+
+
 
