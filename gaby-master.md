@@ -201,6 +201,9 @@ maven的安装操作我在此就不多说，认为读者具备该能力，以下
         <property name="driverClassName" value="${jdbc.driver}" />
         <property name="maxActive" value="${jdbc.maxActive}" />
         <property name="minIdle" value="${jdbc.minIdle}" />
+        <property name="initialSize" value="${jdbc.initialSize}"/>
+        <property name="poolPreparedStatements" value="${jdbc.poolPreparedStatements}"/>
+        <property name="maxPoolPreparedStatementPerConnectionSize" value="${jdbc.maxPoolPreparedStatementPerConnectionSize}"/>
     </bean>
     <!-- 让spring管理sqlsessionfactory 使用mybatis和spring整合包中的 -->
     <!-- SqlSessionFactory -->
@@ -567,7 +570,25 @@ maven的安装操作我在此就不多说，认为读者具备该能力，以下
     <packaging>war</packaging>
 
     <name>demo-ssm-web Maven Webapp</name>
-
+	<!--切换环境-->
+    <profiles>
+        <profile>
+            <id>dev</id>
+            <properties>
+                <env>dev</env>
+            </properties>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+        </profile>
+        <profile>
+            <id>online</id>
+            <properties>
+                <env>online</env>
+            </properties>
+        </profile>
+    </profiles>
+    
     <dependencies>
 
         <!--模块依赖-->
@@ -588,7 +609,7 @@ maven的安装操作我在此就不多说，认为读者具备该能力，以下
      <build>
         <resources>
             <resource>
-                <directory>../resources</directory>
+                <directory>../resources/${env}</directory>
                 <includes>
                     <include>*.properties</include>
                 </includes>
@@ -604,6 +625,27 @@ maven的安装操作我在此就不多说，认为读者具备该能力，以下
             </resource>
         </resources>
     </build>
+    
+    <!--可以改war包的名字，将env里的配置文件弄到classes中-->
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-war-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <addMavenDescriptor>false</addMavenDescriptor>
+                    </archive>
+                    <warName>tjlou-${env}</warName>
+                    <webResources>
+                        <resource>
+                            <directory>../resources/${env}</directory>
+                            <targetPath>WEB-INF/classes</targetPath>
+                            <filtering>true</filtering>
+                        </resource>
+                    </webResources>
+                </configuration>
+            </plugin>
+        </plugins>
 </project>
 
 ```
@@ -835,6 +877,9 @@ jdbc.username=root
 jdbc.password=123456
 jdbc.maxActive=10
 jdbc.minIdle=5
+jdbc.initialSize=5
+jdbc.poolPreparedStatements=true
+jdbc.maxPoolPreparedStatementPerConnectionSize=20
 ```
 
 
@@ -844,7 +889,7 @@ jdbc.minIdle=5
 ```properties
 # priority  :debug<info<warn<error
 #you cannot specify every priority with different file for log4j 
-log4j.rootLogger=debug,stdout,info,debug,warn,error 
+log4j.rootLogger=stdout,info,debug,warn,error 
  
 #console
 log4j.appender.stdout=org.apache.log4j.ConsoleAppender 
@@ -1174,7 +1219,9 @@ public class IdleConnectionEvictor extends Thread {
 
 ```xml
 <ehcache xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:noNamespaceSchemaLocation="http://www.ehcache.org/ehcache.xsd">
+         xsi:noNamespaceSchemaLocation="http://ehcache.org/ehcache.xsd"
+         updateCheck="false"
+            >
     <!--diskStore：缓存数据持久化的目录 地址  -->
     <diskStore path="d:\develop\ehcache" />
     <defaultCache
