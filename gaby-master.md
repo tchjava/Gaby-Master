@@ -88,6 +88,26 @@ maven的安装操作我在此就不多说，认为读者具备该能力，以下
     <artifactId>pom</artifactId>
     <version>1.0-SNAPSHOT</version>
   </parent>
+
+
+<!--切换环境-->
+    <profiles>
+        <profile>
+            <id>dev</id>
+            <properties>
+                <env>dev</env>
+            </properties>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+        </profile>
+        <profile>
+            <id>online</id>
+            <properties>
+                <env>online</env>
+            </properties>
+        </profile>
+    </profiles>
 ```
 
 
@@ -570,24 +590,7 @@ maven的安装操作我在此就不多说，认为读者具备该能力，以下
     <packaging>war</packaging>
 
     <name>demo-ssm-web Maven Webapp</name>
-	<!--切换环境-->
-    <profiles>
-        <profile>
-            <id>dev</id>
-            <properties>
-                <env>dev</env>
-            </properties>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
-        </profile>
-        <profile>
-            <id>online</id>
-            <properties>
-                <env>online</env>
-            </properties>
-        </profile>
-    </profiles>
+	
     
     <dependencies>
 
@@ -596,10 +599,6 @@ maven的安装操作我在此就不多说，认为读者具备该能力，以下
             <groupId>com.gaby</groupId>
             <artifactId>demo-ssm-controller</artifactId>
             <version>1.0-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>com.alibaba</groupId>
-            <artifactId>druid</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
@@ -624,9 +623,7 @@ maven的安装操作我在此就不多说，认为读者具备该能力，以下
                 <filtering>true</filtering>
             </resource>
         </resources>
-    </build>
-    
-    <!--可以改war包的名字，将env里的配置文件弄到classes中-->
+         <!--可以改war包的名字，将env里的配置文件弄到classes中-->
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -646,6 +643,7 @@ maven的安装操作我在此就不多说，认为读者具备该能力，以下
                 </configuration>
             </plugin>
         </plugins>
+    </build>
 </project>
 
 ```
@@ -784,11 +782,6 @@ mapper包里的就是数据访问层的代码。
             <artifactId>mybatis-support</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
-        <!--数据库连接-->
-        <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
-        </dependency>
     </dependencies>
 
     <build>
@@ -817,6 +810,35 @@ mapper包里的就是数据访问层的代码。
 > com.公司名.项目名.common.util
 
 该项目主要写一些公共的东西，也比较少用到，因为最后有用的可以合并到web-common项目中。
+
+#### pom文件
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>express-parent</artifactId>
+        <groupId>com.tjlou</groupId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>express-common</artifactId>
+
+    <name>express-common</name>
+    <dependencies>
+        <dependency>
+            <groupId>com.gaby</groupId>
+            <artifactId>web-common</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
+</project>
+```
+
+
 
 ### api层(项目名-api)
 
@@ -850,7 +872,7 @@ mapper包里的就是数据访问层的代码。
     <dependencies>
         <dependency>
             <groupId>com.gaby</groupId>
-            <artifactId>web-common</artifactId>
+            <artifactId>xxx-common</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
     </dependencies>
@@ -858,7 +880,7 @@ mapper包里的就是数据访问层的代码。
 
 ```
 
-### recourse文件夹
+### resources文件夹
 
 #### application.properties
 
@@ -990,7 +1012,7 @@ spring-redis.xml
 </beans>  
 ```
 
-redis.properties
+### redis.properties
 
 ```properties
 # Redis settings 
@@ -1005,7 +1027,147 @@ redis.database=0
 redis.maxIdle=300  
 redis.maxWait=3000  
 redis.testOnBorrow=true
+#borrowObject 方法的最大等待时间
+redis.maxWaitMillis=30000
 ```
+
+### redis的poolConfig的配置
+
+```xml
+<!--jedis的连接池配置-->
+    <bean id="jedisPoolConfig" class="redis.clients.jedis.JedisPoolConfig" primary="true">
+        <!-- 最大空闲连接数量 -->
+        <property name="maxIdle" value="${redis.maxIdle}"/>
+        <!-- 最小空闲连接数量, 处理间隔时间为 timeBetweenEvictionRunsMillis -->
+        <property name="minIdle" value="${redis.minIdle}"/>
+        <!-- 池中持有的最大连接数量 -->
+        <property name="maxTotal" value="${redis.maxTotal}"/>
+        <!-- borrowObject 方法的最大等待时间 -->
+        <property name="maxWaitMillis" value="${redis.maxWaitMillis}"/>
+        <!-- 池中可用资源耗尽时, borrow 方法是否阻塞等待 maxWaitMillis 毫秒 -->
+        <property name="blockWhenExhausted" value="true"/>
+        <!-- borrowObject 时是否执行检测 -->
+        <property name="testOnBorrow" value="${redis.testOnBorrow}"/>
+        <!-- 是否检测空闲连接链接的有效性, 间隔时间为 timeBetweenEvictionRunsMillis -->
+        <property name="testWhileIdle" value="true"/>
+        <!-- 空闲对象被清除需要达到的最小空闲时间 -->
+        <!--<property name="minEvictableIdleTimeMillis" value="${redis.minEvictableIdleTimeMillis}"/>-->
+        <!-- 空闲检测线程,sleep 间隔多长时间,去处理与idle相关的事情 -->
+        <!--<property name="timeBetweenEvictionRunsMillis" value="${redis.timeBetweenEvictionRunsMillis}"/>-->
+    </bean>
+```
+
+
+
+## spring-session-data-redis
+
+配置了redis的话 直接加
+
+```xml
+<!-- 把session放入redis -->
+    <bean id="redisHttpSessionConfiguration"
+          class="org.springframework.session.data.redis.config.annotation.web.http.RedisHttpSessionConfiguration">
+        <!--统一设置session过期时间-->
+        <property name="maxInactiveIntervalInSeconds" value="21600"/>
+        <!--允许任何数据存入redis,将尽快设置到缓存-->
+        <property name="redisFlushMode" value="IMMEDIATE"/>
+        <!-- session 序列化方式-->
+        <!--<property name="cookieSerializer" ref="defaultCookieSerializer"></property>-->
+   </bean>
+
+<!-- 设置Cookie domain 和 名称 -->
+    <bean id="defaultCookieSerializer" class="org.springframework.session.web.http.DefaultCookieSerializer">
+        <property name="domainName" value="${session.domainName}"/>
+        <property name="cookieName" value="${session.cookieName}"/>
+        <property name="cookiePath" value="${session.cookiePath}"/>
+        <!--<property name="domainNamePattern" value="${session.domainNamePattern}"/>-->
+    </bean>
+```
+
+#### session.properties
+
+```properties
+session.domainName=.121tongbu.com
+session.cookieName=TBJSESSIONID
+session.cookiePath=/
+session.domainNamePattern=/^(([a-zA-Z0-9_-])+(\.)?)*(121tongbu.)(([a-z]))+$/i
+```
+
+#### spring-session.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context" xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                        http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+                        http://www.springframework.org/schema/context
+                        http://www.springframework.org/schema/context/spring-context-3.1.xsd http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
+
+
+    <context:annotation-config/>
+
+
+
+    <!-- redis 相关配置 -->
+    <bean id="poolConfig" class="redis.clients.jedis.JedisPoolConfig">
+        <property name="maxIdle" value="${redis.maxIdle}" />
+        <property name="maxWaitMillis" value="${redis.maxWait}" />
+        <property name="testOnBorrow" value="${redis.testOnBorrow}" />
+        <!-- 池中可用资源耗尽时, borrow 方法是否阻塞等待 maxWaitMillis 毫秒 -->
+        <property name="blockWhenExhausted" value="true"/>
+    </bean>
+
+    <bean id="JedisConnectionFactory" class="org.springframework.data.redis.connection.jedis.JedisConnectionFactory"
+          p:host-name="${redis.host}" p:port="${redis.port}" p:password="${redis.pass}" p:pool-config-ref="poolConfig"/>
+
+    <bean id="redisTemplate" class="org.springframework.data.redis.core.RedisTemplate">
+        <property name="connectionFactory" ref="JedisConnectionFactory" />
+    </bean>
+
+
+    <!-- 把session放入redis -->
+    <bean id="redisHttpSessionConfiguration"
+          class="org.springframework.session.data.redis.config.annotation.web.http.RedisHttpSessionConfiguration">
+        <!--统一设置session过期时间-->
+        <property name="maxInactiveIntervalInSeconds" value="21600"/>
+        <!--允许任何数据存入redis,将尽快设置到缓存-->
+        <property name="redisFlushMode" value="IMMEDIATE"/>
+        <!--<property name="cookieSerializer" ref="defaultCookieSerializer"></property>-->
+    </bean>
+
+    <!--<bean id="defaultCookieSerializer" class="org.springframework.session.web.http.DefaultCookieSerializer">-->
+        <!--<property name="domainName" value="${session.domainName}"/>-->
+        <!--<property name="cookieName" value="${session.cookieName}"/>-->
+        <!--<property name="cookiePath" value="${session.cookiePath}"/>-->
+        <!--&lt;!&ndash;<property name="domainNamePattern" value="${session.domainNamePattern}"/>&ndash;&gt;-->
+    <!--</bean>-->
+</beans>
+
+```
+
+#### pom.xml
+
+```xml
+<dependency>
+      <groupId>org.springframework.session</groupId>
+      <artifactId>spring-session-data-redis</artifactId>
+    </dependency>
+    <!--<dependency>-->
+      <!--<groupId>biz.paluch.redis</groupId>-->
+      <!--<artifactId>lettuce</artifactId>-->
+      <!--<version>4.5.0.Final</version>-->
+    <!--</dependency>-->
+    <!--<dependency>-->
+      <!--<groupId>com.lambdaworks</groupId>-->
+      <!--<artifactId>lettuce</artifactId>-->
+      <!--<version>2.3.3</version>-->
+    <!--</dependency>-->
+```
+
+
 
 ## httpclient
 
@@ -1064,12 +1226,115 @@ httpclient.socketTimeout=10000
 
     </bean>
     <!--定期清理无效连接-->
+    <bean class="com.gaby.http.clear.IdleConnectionEvictor">
+        <constructor-arg index="0" ref="connectionManager"/>
+    </bean>
+</beans>
+
+```
+
+### 完善的spring-httpclicent.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                        http://www.springframework.org/schema/beans/spring-beans-3.1.xsd">
+
+    <bean id="connectionManager" class="org.apache.http.impl.conn.PoolingHttpClientConnectionManager">
+        <property name="maxTotal" value="${httpclient.maxTotal}"></property>
+        <property name="defaultMaxPerRoute" value="${httpclient.defaultMaxPerRoute}"></property>
+    </bean>
+
+    <!--httpclient构造器-->
+    <bean id="httpClientBuilder" class="org.apache.http.impl.client.HttpClientBuilder">
+        <property name="connectionManager" ref="connectionManager"></property>
+    </bean>
+
+
+    <!--具有代理的httpclient构造器-->
+    <bean id="proxyHttpClientBuilder" class="org.apache.http.impl.client.HttpClientBuilder">
+        <property name="connectionManager" ref="connectionManager"></property>
+        <property name="defaultCredentialsProvider" ref="basicCredentialsProvider"></property>
+    </bean>
+    <!--BasicCredentialsProvider 代理凭证-->
+    <bean id="basicCredentialsProvider" class="com.tjlou.wpt.httpclient.provider.CustomCredentialsProvider">
+        <property name="credentials" ref="usernamePasswordCredentials"></property>
+    </bean>
+    <!--UsernamePasswordCredentials-->
+    <bean id="usernamePasswordCredentials" class="org.apache.http.auth.UsernamePasswordCredentials">
+        <constructor-arg index="0" value="${16yun.proxyUser}"/>
+        <constructor-arg index="1" value="${16yun.proxyPass}"/>
+    </bean>
+
+
+    <!--httpclient对象,多例-->
+    <bean  id="httpClient" class="org.apache.http.impl.client.CloseableHttpClient"
+          factory-bean="httpClientBuilder" factory-method="build"
+    scope="prototype">
+
+    </bean>
+
+    <!--代理httpclient对象,多例-->
+    <bean  id="proxyHttpClient" class="org.apache.http.impl.client.CloseableHttpClient"
+           factory-bean="proxyHttpClientBuilder" factory-method="build"
+           scope="prototype">
+
+    </bean>
+
+
+
+
+    <!--Builder-->
+    <bean id="builder" class="org.apache.http.client.config.RequestConfig.Builder">
+        <property name="connectTimeout" value="${httpclient.connectTimeout}"/>
+        <property name="connectionRequestTimeout" value="${httpclient.connectionRequestTimeout}"/>
+        <property name="socketTimeout" value="${httpclient.socketTimeout}"/>
+    </bean>
+
+
+    <!--代理ip的builder-->
+    <bean id="proxy_builder" class="org.apache.http.client.config.RequestConfig.Builder">
+        <property name="connectTimeout" value="${httpclient.connectTimeout}"/>
+        <property name="connectionRequestTimeout" value="${httpclient.connectionRequestTimeout}"/>
+        <property name="socketTimeout" value="${httpclient.socketTimeout}"/>
+        <property name="proxy" ref="httpHost"></property>
+    </bean>
+
+    <!--代理ip的builder   特殊的针对发送聊天内容那的-->
+    <bean id="proxy_msg_builder" class="org.apache.http.client.config.RequestConfig.Builder">
+        <property name="connectTimeout" value="${httpclient.msg.connectTimeout}"/>
+        <property name="connectionRequestTimeout" value="${httpclient.msg.connectionRequestTimeout}"/>
+        <property name="socketTimeout" value="${httpclient.msg.socketTimeout}"/>
+        <property name="proxy" ref="httpHost"></property>
+    </bean>
+    <!--代理服务器-->
+    <bean id="httpHost" class="org.apache.http.HttpHost">
+        <constructor-arg index="0" value="${16yun.proxyHost}"></constructor-arg>
+        <constructor-arg index="1" value="${16yun.proxyPort}"></constructor-arg>
+    </bean>
+
+
+    <!--请求配置对象-->
+    <bean id="requestConfig" class="org.apache.http.client.config.RequestConfig" factory-bean="builder" factory-method="build"/>
+
+    <!--请求代理的配置对象-->
+    <bean id="proxyRequestConfig" class="org.apache.http.client.config.RequestConfig" factory-bean="proxy_builder" factory-method="build">
+    </bean>
+    <!--请求代理的配置对象 特殊：发送聊天-->
+    <bean id="proxyMsgRequestConfig" class="org.apache.http.client.config.RequestConfig" factory-bean="proxy_msg_builder" factory-method="build"/>
+
+
+    <!--定期清理无效连接-->
     <bean class="com.tjlou.wpt.httpclient.IdleConnectionEvictor">
         <constructor-arg index="0" ref="connectionManager"/>
     </bean>
 </beans>
 
 ```
+
+
 
 ### 清理无效连接的线程类
 
@@ -1122,6 +1387,144 @@ public class IdleConnectionEvictor extends Thread {
 }
 
 ```
+
+## Spring-task
+
+### spring-task.xml
+
+```xml
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:task="http://www.springframework.org/schema/task"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+  http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+  http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
+  http://www.springframework.org/schema/jee http://www.springframework.org/schema/jee/spring-jee-4.0.xsd
+  http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.0.xsd
+  http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.0.xsd
+  http://www.springframework.org/schema/task http://www.springframework.org/schema/task/spring-task-4.0.xsd">
+
+    
+</beans>
+```
+
+## Spring-JMS
+
+### jms.properties
+
+```properties
+mq.url=tcp://192.168.25.129:61616
+#订单未支付的消息队列
+mq.queue=object-queue
+```
+
+### spring-jms-producer.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:context="http://www.springframework.org/schema/context" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:amq="http://activemq.apache.org/schema/core"
+	xmlns:jms="http://www.springframework.org/schema/jms"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans   
+		http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context   
+		http://www.springframework.org/schema/context/spring-context.xsd">
+		
+		
+	<context:component-scan base-package="cn.itcast.demo"></context:component-scan>     
+	
+	   
+    <!-- 真正可以产生Connection的ConnectionFactory，由对应的 JMS服务厂商提供-->  
+	<bean id="targetConnectionFactory" class="org.apache.activemq.ActiveMQConnectionFactory">  
+	    <property name="brokerURL" value="tcp://192.168.25.129:61616"/>  
+	</bean>
+	   
+    <!-- Spring用于管理真正的ConnectionFactory的ConnectionFactory -->  
+	<bean id="connectionFactory" class="org.springframework.jms.connection.SingleConnectionFactory">  
+	<!-- 目标ConnectionFactory对应真实的可以产生JMS Connection的ConnectionFactory -->  
+	    <property name="targetConnectionFactory" ref="targetConnectionFactory"/>  
+	</bean>  
+		   
+    <!-- Spring提供的JMS工具类，它可以进行消息发送、接收等 -->  
+	<bean id="jmsTemplate" class="org.springframework.jms.core.JmsTemplate">  
+	    <!-- 这个connectionFactory对应的是我们定义的Spring提供的那个ConnectionFactory对象 -->  
+	    <property name="connectionFactory" ref="connectionFactory"/>  
+	</bean>      
+    <!--这个是队列目的地，点对点的  文本信息-->  
+	<bean id="queueTextDestination" class="org.apache.activemq.command.ActiveMQQueue">  
+	    <constructor-arg value="queue_text"/>  
+	</bean>    
+	
+	<!--这个是订阅模式  文本信息-->  
+	<bean id="topicTextDestination" class="org.apache.activemq.command.ActiveMQTopic">  
+	    <constructor-arg value="topic_text"/>  
+	</bean>  
+	
+</beans>
+```
+
+### spring-jms-consumer.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:context="http://www.springframework.org/schema/context" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:amq="http://activemq.apache.org/schema/core"
+	xmlns:jms="http://www.springframework.org/schema/jms"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans   
+		http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context   
+		http://www.springframework.org/schema/context/spring-context.xsd">
+	
+    <!-- 真正可以产生Connection的ConnectionFactory，由对应的 JMS服务厂商提供-->  
+	<bean id="targetConnectionFactory" class="org.apache.activemq.ActiveMQConnectionFactory">  
+	    <property name="brokerURL" value="tcp://192.168.25.129:61616"/>  
+	</bean>
+	   
+    <!-- Spring用于管理真正的ConnectionFactory的ConnectionFactory -->  
+	<bean id="connectionFactory" class="org.springframework.jms.connection.SingleConnectionFactory">  
+	<!-- 目标ConnectionFactory对应真实的可以产生JMS Connection的ConnectionFactory -->  
+	    <property name="targetConnectionFactory" ref="targetConnectionFactory"/>  
+	</bean>  
+	
+    <!--这个是队列目的地，点对点的  文本信息-->  
+	<bean id="queueTextDestination" class="org.apache.activemq.command.ActiveMQQueue">  
+	    <constructor-arg value="queue_text"/>  
+	</bean>    
+	
+	<!-- 我的监听类 -->
+	<bean id="myMessageListener" class="cn.itcast.demo.MyMessageListener"></bean>
+	<!-- 消息监听容器 -->
+	<bean class="org.springframework.jms.listener.DefaultMessageListenerContainer">
+		<property name="connectionFactory" ref="connectionFactory" />
+		<property name="destination" ref="queueTextDestination" />
+		<property name="messageListener" ref="myMessageListener" />
+	</bean>
+	
+</beans>
+```
+
+### pom.xml
+
+```xml
+<!--activemq-->
+        <dependency>
+            <groupId>org.apache.activemq</groupId>
+            <artifactId>activemq-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-jms</artifactId>
+        </dependency>
+		<!--默认1.1的部分类找不到-->
+        <dependency>
+            <groupId>javax.jms</groupId>
+            <artifactId>javax.jms-api</artifactId>
+            <version>2.0.1</version>
+        </dependency>
+```
+
+
 
 ## shiro
 
