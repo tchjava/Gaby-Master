@@ -143,6 +143,8 @@ maven的安装操作我在此就不多说，认为读者具备该能力，以下
         <mvc:message-converters register-defaults="true">
             <bean class="org.springframework.http.converter.ByteArrayHttpMessageConverter"/>
             <bean class="org.springframework.http.converter.FormHttpMessageConverter"/>
+             <!--XmlRootElement注解-->
+            <bean class="org.springframework.http.converter.xml.Jaxb2RootElementHttpMessageConverter"/>
             <ref bean="stringHttpMessageConverter"/>
             <ref bean="fastJsonHttpMessageConverter"></ref>
         </mvc:message-converters>
